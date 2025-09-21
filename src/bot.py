@@ -117,26 +117,32 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def main(application: Application):
     """Initialize the bot with handlers."""
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    
-    # Add video/document handler
-    application.add_handler(MessageHandler(
-        (filters.VIDEO |
-         filters.Document.VIDEO |
-         filters.Document.MimeType("video/mp4") |
-         filters.Document.MimeType("video/x-matroska") |
-         filters.Document.MimeType("video/x-msvideo") |
-         filters.Document.VIDEO |
-         filters.Document.FileExtension("mkv") |
-         filters.Document.FileExtension("mp4") |
-         filters.Document.FileExtension("avi")),
-        handle_video
-    ))
+    try:
+        # Add command handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        
+        # Add video/document handler
+        application.add_handler(MessageHandler(
+            (filters.VIDEO |
+             filters.Document.VIDEO |
+             filters.Document.MimeType("video/mp4") |
+             filters.Document.MimeType("video/x-matroska") |
+             filters.Document.MimeType("video/x-msvideo") |
+             filters.Document.VIDEO |
+             filters.Document.FileExtension("mkv") |
+             filters.Document.FileExtension("mp4") |
+             filters.Document.FileExtension("avi")),
+            handle_video
+        ))
 
-    # Start polling in background
-    application.run_polling(allowed_updates=Update.ALL_TYPES, close_loop=False)
+        # Start polling in background
+        await application.updater.start_polling()
+        logger.info("Bot polling started successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in bot initialization: {str(e)}")
+        raise
 
 if __name__ == '__main__':
     main()
