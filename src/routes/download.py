@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from utils.database import Database
 from utils.link_generator import LinkGenerator
@@ -7,11 +7,11 @@ import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-app = FastAPI()
+router = APIRouter()
 db = Database()
 link_generator = LinkGenerator()
 
-@app.get("/download/{token}")
+@router.get("/download/{token}")
 async def download_file(token: str):
     try:
         # Ensure database is connected

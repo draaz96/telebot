@@ -28,7 +28,7 @@ class LinkGenerator:
         encrypted_data = self.fernet.encrypt(json.dumps(payload).encode())
         token = urlsafe_b64encode(encrypted_data).decode()
         
-        return f"{self.base_url}/download/{token}"
+        return f"{self.base_url}/api/download/{token}"
 
     def verify_link(self, token: str) -> dict:
         """
