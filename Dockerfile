@@ -1,8 +1,11 @@
-FROM python:3.11-slim
+FROM python:3.11.5-slim-bullseye
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies with retry mechanism
+RUN apt-get update --yes && \
+    apt-get install --yes --no-install-recommends \
     libmagic1 \
+    ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

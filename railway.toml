@@ -1,6 +1,8 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+buildCommand = "docker build --network=host -t $IMAGE_NAME ."
+timeout = "30m"
 
 [deploy]
 startCommand = "python src/server.py"
