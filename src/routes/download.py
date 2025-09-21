@@ -3,8 +3,10 @@ from fastapi.responses import FileResponse
 from utils.database import Database
 from utils.link_generator import LinkGenerator
 import os
+import logging
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 app = FastAPI()
 db = Database()
 link_generator = LinkGenerator()
@@ -12,6 +14,14 @@ link_generator = LinkGenerator()
 @app.get("/download/{token}")
 async def download_file(token: str):
     try:
+        # Ensure database is connected
+        await db.connect()
+        if not db.client:
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection not available"
+            )
+
         # Verify and decrypt token
         file_data = link_generator.verify_link(token)
         
@@ -25,7 +35,10 @@ async def download_file(token: str):
             raise HTTPException(status_code=404, detail="File not found")
             
         # Update download count
-        await db.update_download_count(file_data['file_id'])
+        try:
+            await db.update_download_count(file_data['file_id'])
+        except Exception as e:
+            logger.warning(f"Failed to update download count: {str(e)}")
         
         # Return file
         return FileResponse(
@@ -37,4 +50,5 @@ async def download_file(token: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Error processing download: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

@@ -3,23 +3,50 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timedelta
 from bson import ObjectId
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 class Database:
+    _instance: Optional['Database'] = None
+    client: Optional[AsyncIOMotorClient] = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
+        # Skip initialization if already done
+        if hasattr(self, 'initialized'):
+            return
+        self.initialized = True
+        self.mongo_uri = None
+        self.db = None
+        self.files = None
+        self.users = None
+
+    async def connect(self):
+        """Lazy connection to MongoDB"""
+        if self.client is not None:
+            return
+
         self.mongo_uri = os.getenv('MONGODB_URI')
         if not self.mongo_uri:
-            raise ValueError("MongoDB URI not found in environment variables")
-        
+            logger.error("MongoDB URI not found in environment variables")
+            return
+
         try:
             self.client = AsyncIOMotorClient(self.mongo_uri)
             self.db = self.client.get_database('filebot')
             self.files = self.db.get_collection('files')
             self.users = self.db.get_collection('users')
+            # Test the connection
+            await self.client.admin.command('ping')
+            logger.info("Successfully connected to MongoDB")
         except Exception as e:
             logger.error(f"Failed to initialize database connection: {str(e)}")
-            raise
+            self.client = None
 
     async def save_file(self, file_data: dict) -> str:
         """
