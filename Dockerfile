@@ -20,6 +20,12 @@ RUN mkdir -p temp
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/src
+
+# Create non-root user
+RUN adduser --disabled-password --gecos "" appuser
+RUN chown -R appuser:appuser /app
+USER appuser
 
 # Command to run both bot and server
 CMD ["python", "src/server.py"]
