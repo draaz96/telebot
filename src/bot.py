@@ -49,32 +49,56 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Get the file
         message = update.message
+        logger.info(f"Received message: {message.message_id}")
+        
         if message.video:
             file = message.video
+            logger.info("Received video file")
         elif message.document:
             file = message.document
+            logger.info("Received document file")
         else:
+            logger.warning("No video or document in message")
             await message.reply_text("Please send a video file!")
             return
 
+        logger.info(f"Processing file: {file.file_name}")
+
+        # Create temp directory if it doesn't exist
+        temp_dir = Path('temp')
+        temp_dir.mkdir(exist_ok=True)
+        
         # Download the file
-        temp_path = Path('temp') / file.file_name
+        temp_path = temp_dir / file.file_name
+        logger.info(f"Downloading to: {temp_path}")
         file_obj = await context.bot.get_file(file.file_id)
         await file_obj.download_to_drive(temp_path)
+        logger.info("File downloaded successfully")
 
         # Process file
         file_info = await file_handler.save_temp_file(str(temp_path), file.file_name)
+        logger.info(f"File info: {file_info}")
         
         if not file_handler.is_valid_video(file_info['mime_type']):
+            logger.warning(f"Invalid mime type: {file_info['mime_type']}")
             await message.reply_text("Invalid file type! Please send a video file (mp4, mkv, avi).")
             temp_path.unlink()
             return
 
+        # Ensure database connection
+        await db.connect()
+        if not db.client:
+            logger.error("Database connection failed")
+            await message.reply_text("Sorry, database connection failed. Please try again later.")
+            return
+
         # Save to database
         file_id = await db.save_file(file_info)
+        logger.info(f"Saved to database with ID: {file_id}")
         
         # Generate download link
         download_link = link_generator.generate_download_link(file_id, file.file_name)
+        logger.info(f"Generated download link: {download_link}")
         
         # Format response message
         response_text = (
@@ -85,6 +109,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         await message.reply_text(response_text)
+        logger.info("Response sent to user")
         
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
@@ -101,8 +126,15 @@ def main():
     
     # Add video/document handler
     application.add_handler(MessageHandler(
-        (filters.VIDEO | filters.Document.VIDEO | filters.Document.MimeType("video/mp4") |
-         filters.Document.MimeType("video/x-matroska") | filters.Document.MimeType("video/x-msvideo")),
+        (filters.VIDEO |
+         filters.Document.VIDEO |
+         filters.Document.MimeType("video/mp4") |
+         filters.Document.MimeType("video/x-matroska") |
+         filters.Document.MimeType("video/x-msvideo") |
+         filters.Document.VIDEO |
+         filters.Document.FileExtension("mkv") |
+         filters.Document.FileExtension("mp4") |
+         filters.Document.FileExtension("avi")),
         handle_video
     ))
 

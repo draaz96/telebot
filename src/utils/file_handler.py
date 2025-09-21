@@ -35,7 +35,11 @@ class FileHandler:
         """
         Check if the file is a valid video format
         """
-        return mime_type in ALLOWED_MIME_TYPES
+        logger.info(f"Checking mime type: {mime_type}")
+        is_valid = mime_type in ALLOWED_MIME_TYPES
+        if not is_valid:
+            logger.warning(f"Invalid mime type: {mime_type}. Allowed types: {ALLOWED_MIME_TYPES}")
+        return is_valid
 
     def format_size(self, size_in_bytes: int) -> str:
         """
