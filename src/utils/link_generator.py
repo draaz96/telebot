@@ -9,7 +9,17 @@ class LinkGenerator:
         # Generate or load encryption key
         self.key = os.getenv('ENCRYPTION_KEY', Fernet.generate_key())
         self.fernet = Fernet(self.key)
-        self.base_url = os.getenv('BASE_URL', 'http://localhost:8000')
+
+    def _get_base_url(self) -> str:
+        """
+        Get the base URL from environment or default to localhost
+        """
+        base_url = os.getenv('BASE_URL')
+        if not base_url:
+            # For local development
+            port = os.getenv('PORT', '8000')
+            base_url = f"http://localhost:{port}"
+        return base_url.rstrip('/')  # Remove trailing slash if present
 
     def generate_download_link(self, file_id: str, file_name: str) -> str:
         """
@@ -28,7 +38,9 @@ class LinkGenerator:
         encrypted_data = self.fernet.encrypt(json.dumps(payload).encode())
         token = urlsafe_b64encode(encrypted_data).decode()
         
-        return f"{self.base_url}/api/download/{token}"
+        # Get current base URL
+        base_url = self._get_base_url()
+        return f"{base_url}/api/download/{token}"
 
     def verify_link(self, token: str) -> dict:
         """
