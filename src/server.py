@@ -3,10 +3,10 @@ import uvicorn
 from fastapi import FastAPI
 from routes.download import router as download_router
 from routes.health import router as health_router
+from telegram.ext import Application
 from bot import main as bot_main
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 logging.basicConfig(
@@ -22,29 +22,49 @@ app = FastAPI(title="Telegram File Bot")
 app.include_router(download_router, prefix="/api")
 app.include_router(health_router)
 
-# Create a new event loop for the bot
-bot_loop = asyncio.new_event_loop()
-
-def run_bot_forever():
-    """Run the bot in its own event loop"""
-    asyncio.set_event_loop(bot_loop)
-    bot_loop.run_until_complete(bot_main())
+# Global variable for the bot application
+bot_app = None
 
 @app.on_event("startup")
 async def startup_event():
     """Start the bot when the FastAPI server starts"""
+    global bot_app
     try:
-        # Start the bot in a thread pool
-        executor = ThreadPoolExecutor(max_workers=1)
-        executor.submit(run_bot_forever)
-        logger.info("Bot thread started")
+        token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not token:
+            logger.error("TELEGRAM_BOT_TOKEN not found in environment variables")
+            return
+
+        # Initialize bot
+        bot_app = Application.builder().token(token).build()
+        
+        # Set up handlers (from bot.main)
+        await bot_main(bot_app)
+        
+        # Start the bot
+        await bot_app.initialize()
+        await bot_app.start()
+        await bot_app.update_bot_data({})  # Initialize bot data
+        
+        logger.info("Bot started successfully")
     except Exception as e:
         logger.error(f"Failed to start bot: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop the bot when the FastAPI server stops"""
+    global bot_app
+    if bot_app:
+        try:
+            await bot_app.stop()
+            await bot_app.shutdown()
+            logger.info("Bot stopped successfully")
+        except Exception as e:
+            logger.error(f"Error stopping bot: {str(e)}")
 
 def start_server():
     """Start the FastAPI server"""
     try:
-        # Use PORT environment variable with fallback to 8080 for Railway
         port = int(os.getenv('PORT', '8080'))
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
@@ -56,8 +76,3 @@ if __name__ == "__main__":
         start_server()
     except Exception as e:
         logger.error(f"Application startup failed: {str(e)}")
-    finally:
-        # Cleanup
-        if bot_loop.is_running():
-            bot_loop.stop()
-        bot_loop.close()

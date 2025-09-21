@@ -115,11 +115,8 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error processing file: {str(e)}")
         await message.reply_text("Sorry, there was an error processing your file. Please try again.")
 
-def main():
-    """Start the bot."""
-    # Create the Application and pass it your bot's token
-    application = Application.builder().token(TOKEN).build()
-
+async def main(application: Application):
+    """Initialize the bot with handlers."""
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -138,8 +135,8 @@ def main():
         handle_video
     ))
 
-    # Start the Bot
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Start polling in background
+    application.run_polling(allowed_updates=Update.ALL_TYPES, close_loop=False)
 
 if __name__ == '__main__':
     main()
