@@ -31,9 +31,10 @@ class Database:
         if self.client is not None:
             return
 
-        self.mongo_uri = os.getenv('MONGODB_URI')
+        # Try different MongoDB URI environment variables
+        self.mongo_uri = os.getenv('MONGODB_URI') or os.getenv('MONGO_URL')
         if not self.mongo_uri:
-            logger.error("MongoDB URI not found in environment variables")
+            logger.error("MongoDB URI not found in environment variables (checked MONGODB_URI and MONGO_URL)")
             return
 
         try:
