@@ -5,8 +5,8 @@ from routes.download import router as download_router
 from routes.health import router as health_router
 from bot import main as bot_main
 import asyncio
-import threading
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 logging.basicConfig(
@@ -22,28 +22,42 @@ app = FastAPI(title="Telegram File Bot")
 app.include_router(download_router, prefix="/api")
 app.include_router(health_router)
 
-def run_bot():
+# Create a new event loop for the bot
+bot_loop = asyncio.new_event_loop()
+
+def run_bot_forever():
+    """Run the bot in its own event loop"""
+    asyncio.set_event_loop(bot_loop)
+    bot_loop.run_until_complete(bot_main())
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the bot when the FastAPI server starts"""
     try:
-        asyncio.run(bot_main())
+        # Start the bot in a thread pool
+        executor = ThreadPoolExecutor(max_workers=1)
+        executor.submit(run_bot_forever)
+        logger.info("Bot thread started")
     except Exception as e:
-        logger.error(f"Bot crashed: {str(e)}")
+        logger.error(f"Failed to start bot: {str(e)}")
 
 def start_server():
+    """Start the FastAPI server"""
     try:
-        port = int(os.getenv('PORT', '8000'))
+        # Use PORT environment variable with fallback to 8080 for Railway
+        port = int(os.getenv('PORT', '8080'))
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
         logger.error(f"Server crashed: {str(e)}")
 
 if __name__ == "__main__":
     try:
-        # Start bot in a separate thread
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        logger.info("Bot thread started")
-        
-        # Start FastAPI server
         logger.info("Starting FastAPI server")
         start_server()
     except Exception as e:
         logger.error(f"Application startup failed: {str(e)}")
+    finally:
+        # Cleanup
+        if bot_loop.is_running():
+            bot_loop.stop()
+        bot_loop.close()

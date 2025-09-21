@@ -5,15 +5,25 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check(response: Response):
-    # Check if required environment variables are set
-    required_vars = ['TELEGRAM_BOT_TOKEN', 'MONGODB_URI']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    # Check for either MONGODB_URI or MONGO_URL
+    has_mongo = bool(os.getenv('MONGODB_URI') or os.getenv('MONGO_URL'))
+    has_token = bool(os.getenv('TELEGRAM_BOT_TOKEN'))
     
-    if missing_vars:
-        response.status_code = 503
-        return {
-            "status": "unhealthy",
-            "message": f"Missing environment variables: {', '.join(missing_vars)}"
+    status = {
+        "status": "healthy" if (has_mongo and has_token) else "unhealthy",
+        "checks": {
+            "database": "connected" if has_mongo else "disconnected",
+            "telegram_bot": "configured" if has_token else "not_configured"
         }
+    }
     
-    return {"status": "healthy"}
+    if not (has_mongo and has_token):
+        response.status_code = 503
+        missing = []
+        if not has_mongo:
+            missing.append("MONGODB_URI or MONGO_URL")
+        if not has_token:
+            missing.append("TELEGRAM_BOT_TOKEN")
+        status["message"] = f"Missing environment variables: {', '.join(missing)}"
+    
+    return status
